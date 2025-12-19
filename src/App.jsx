@@ -10,7 +10,8 @@ function App() {
 
   const categoryColumnId = config?.categoryColumn
   const valueColumnId = config?.valueColumn
-  const sortOrder = config?.sortOrder || 'By Value (Largest First)'
+  const sortColumnId = config?.sortColumn
+  const sortOrder = config?.sortOrder || 'By Sort Column'
   const excludeCategories = config?.excludeCategories || ''
   const funnelDirection = config?.funnelDirection || 'Vertical'
   const funnelStyle = config?.funnelStyle || 'Sharp'
@@ -37,11 +38,13 @@ function App() {
 
     const categories = sigmaData[categoryColumnId]
     const values = sigmaData[valueColumnId]
+    const sortValues = sortColumnId ? sigmaData[sortColumnId] : null
 
     if (!categories || !values || !Array.isArray(categories) || !Array.isArray(values)) return null
 
     // Aggregate by category, preserving order of first occurrence
     const aggregated = {}
+    const sortOrderMap = {}
     const order = []
     
     for (let i = 0; i < categories.length; i++) {
@@ -55,31 +58,45 @@ function App() {
         if (!(cat in aggregated)) {
           aggregated[cat] = 0
           order.push(cat)
+          
+          // Capture sort value for this category (use first occurrence)
+          if (sortValues && sortValues[i] !== null && sortValues[i] !== undefined) {
+            sortOrderMap[cat] = Number(sortValues[i])
+          }
         }
         aggregated[cat] += val
       }
     }
 
     // Create data array
-    let dataArray = order.map(cat => ({ category: cat, value: aggregated[cat] }))
+    let dataArray = order.map(cat => ({ 
+      category: cat, 
+      value: aggregated[cat],
+      sortValue: sortOrderMap[cat] ?? Infinity
+    }))
 
     // Sort based on user preference
-    if (sortOrder === 'By Value (Largest First)') {
+    if (sortOrder === 'By Sort Column' && sortColumnId) {
+      dataArray.sort((a, b) => a.sortValue - b.sortValue)
+    } else if (sortOrder === 'By Sort Column' && !sortColumnId) {
+      // Fall back to largest first if no sort column specified
+      dataArray.sort((a, b) => b.value - a.value)
+    } else if (sortOrder === 'By Value (Largest First)') {
       dataArray.sort((a, b) => b.value - a.value)
     } else if (sortOrder === 'By Value (Smallest First)') {
       dataArray.sort((a, b) => a.value - b.value)
     }
     // 'Keep Data Order' - no sorting needed
 
-    // Calculate percentages and conversion rates
-    const maxValue = dataArray[0]?.value || 1
+    // Calculate percentages and conversion rates based on FIRST stage (top of funnel)
+    const firstValue = dataArray[0]?.value || 1
     
     return dataArray.map((item, index) => ({
       ...item,
-      percentage: (item.value / maxValue) * 100,
+      percentage: (item.value / firstValue) * 100,
       conversionRate: index > 0 ? (item.value / dataArray[index - 1].value) * 100 : 100
     }))
-  }, [sigmaData, categoryColumnId, valueColumnId, sortOrder, excludedSet])
+  }, [sigmaData, categoryColumnId, valueColumnId, sortColumnId, sortOrder, excludedSet])
 
   const categoryName = useMemo(() => {
     if (!columns || !categoryColumnId) return 'Stage'

@@ -10,7 +10,8 @@ client.config.configureEditorPanel([
   { name: 'valueColumn', type: 'column', source: 'source', allowMultiple: false, label: 'Value Column' },
   
   { name: 'dataOptions', type: 'group', label: 'Data Options' },
-  { name: 'sortOrder', type: 'dropdown', source: 'dataOptions', label: 'Sort Order', values: ['By Value (Largest First)', 'By Value (Smallest First)', 'Keep Data Order'], defaultValue: 'By Value (Largest First)' },
+  { name: 'sortColumn', type: 'column', source: 'source', allowMultiple: false, label: 'Sort Order Column (optional)' },
+  { name: 'sortOrder', type: 'dropdown', source: 'dataOptions', label: 'Sort Order', values: ['By Sort Column', 'By Value (Largest First)', 'By Value (Smallest First)', 'Keep Data Order'], defaultValue: 'By Sort Column' },
   { name: 'excludeCategories', type: 'text', source: 'dataOptions', label: 'Exclude Categories (comma-separated)', placeholder: 'e.g., Closed Lost, Disqualified' },
   
   { name: 'displayOptions', type: 'group', label: 'Display Options' },

@@ -10,6 +10,8 @@ function App() {
 
   const categoryColumnId = config?.categoryColumn
   const valueColumnId = config?.valueColumn
+  const sortOrder = config?.sortOrder || 'By Value (Largest First)'
+  const excludeCategories = config?.excludeCategories || ''
   const funnelDirection = config?.funnelDirection || 'Vertical'
   const funnelStyle = config?.funnelStyle || 'Sharp'
   const colorScheme = config?.colorScheme || 'Blue Gradient'
@@ -19,6 +21,17 @@ function App() {
   const chartTitle = config?.chartTitle || ''
   const valueFormat = config?.valueFormat || 'Auto'
 
+  // Parse excluded categories
+  const excludedSet = useMemo(() => {
+    if (!excludeCategories.trim()) return new Set()
+    return new Set(
+      excludeCategories
+        .split(',')
+        .map(s => s.trim().toLowerCase())
+        .filter(s => s.length > 0)
+    )
+  }, [excludeCategories])
+
   const funnelData = useMemo(() => {
     if (!sigmaData || !categoryColumnId || !valueColumnId) return null
 
@@ -27,7 +40,7 @@ function App() {
 
     if (!categories || !values || !Array.isArray(categories) || !Array.isArray(values)) return null
 
-    // Aggregate by category
+    // Aggregate by category, preserving order of first occurrence
     const aggregated = {}
     const order = []
     
@@ -36,6 +49,9 @@ function App() {
       const val = Number(values[i])
       
       if (cat !== null && cat !== undefined && !isNaN(val)) {
+        // Check if this category should be excluded
+        if (excludedSet.has(String(cat).toLowerCase())) continue
+        
         if (!(cat in aggregated)) {
           aggregated[cat] = 0
           order.push(cat)
@@ -44,20 +60,26 @@ function App() {
       }
     }
 
-    // Sort by value descending (largest at top)
-    const sorted = order
-      .map(cat => ({ category: cat, value: aggregated[cat] }))
-      .sort((a, b) => b.value - a.value)
+    // Create data array
+    let dataArray = order.map(cat => ({ category: cat, value: aggregated[cat] }))
+
+    // Sort based on user preference
+    if (sortOrder === 'By Value (Largest First)') {
+      dataArray.sort((a, b) => b.value - a.value)
+    } else if (sortOrder === 'By Value (Smallest First)') {
+      dataArray.sort((a, b) => a.value - b.value)
+    }
+    // 'Keep Data Order' - no sorting needed
 
     // Calculate percentages and conversion rates
-    const maxValue = sorted[0]?.value || 1
+    const maxValue = dataArray[0]?.value || 1
     
-    return sorted.map((item, index) => ({
+    return dataArray.map((item, index) => ({
       ...item,
       percentage: (item.value / maxValue) * 100,
-      conversionRate: index > 0 ? (item.value / sorted[index - 1].value) * 100 : 100
+      conversionRate: index > 0 ? (item.value / dataArray[index - 1].value) * 100 : 100
     }))
-  }, [sigmaData, categoryColumnId, valueColumnId])
+  }, [sigmaData, categoryColumnId, valueColumnId, sortOrder, excludedSet])
 
   const categoryName = useMemo(() => {
     if (!columns || !categoryColumnId) return 'Stage'
@@ -77,7 +99,7 @@ function App() {
     return (
       <div className="empty-state">
         <h3 className="empty-state-title">No Data Available</h3>
-        <p className="empty-state-message">The selected columns have no valid data.</p>
+        <p className="empty-state-message">The selected columns have no valid data, or all categories have been excluded.</p>
       </div>
     )
   }

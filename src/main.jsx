@@ -9,6 +9,10 @@ client.config.configureEditorPanel([
   { name: 'categoryColumn', type: 'column', source: 'source', allowMultiple: false, label: 'Stage/Category Column' },
   { name: 'valueColumn', type: 'column', source: 'source', allowMultiple: false, label: 'Value Column' },
   
+  { name: 'dataOptions', type: 'group', label: 'Data Options' },
+  { name: 'sortOrder', type: 'dropdown', source: 'dataOptions', label: 'Sort Order', values: ['By Value (Largest First)', 'By Value (Smallest First)', 'Keep Data Order'], defaultValue: 'By Value (Largest First)' },
+  { name: 'excludeCategories', type: 'text', source: 'dataOptions', label: 'Exclude Categories (comma-separated)', placeholder: 'e.g., Closed Lost, Disqualified' },
+  
   { name: 'displayOptions', type: 'group', label: 'Display Options' },
   { name: 'funnelDirection', type: 'dropdown', source: 'displayOptions', label: 'Direction', values: ['Vertical', 'Horizontal'], defaultValue: 'Vertical' },
   { name: 'funnelStyle', type: 'dropdown', source: 'displayOptions', label: 'Style', values: ['Sharp', 'Smooth'], defaultValue: 'Sharp' },

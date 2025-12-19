@@ -58,9 +58,12 @@ function FunnelChart({
 
     const isVertical = direction === 'Vertical'
     const isSmooth = style === 'Smooth'
+    
+    // Dynamic margins based on content
     const margin = isVertical 
-      ? { top: 20, right: 140, bottom: 20, left: 140 }
-      : { top: 60, right: 20, bottom: 40, left: 20 }
+      ? { top: 20, right: 100, bottom: 20, left: 160 }
+      : { top: 80, right: 20, bottom: 60, left: 20 }
+    
     const width = dimensions.width - margin.left - margin.right
     const height = dimensions.height - margin.top - margin.bottom
 
@@ -71,15 +74,31 @@ function FunnelChart({
     const colors = colorSchemes[colorScheme] || colorSchemes['Blue Gradient']
     const n = data.length
 
+    // Find min and max percentages for better scaling
+    const maxPercentage = Math.max(...data.map(d => d.percentage))
+    const minPercentage = Math.min(...data.map(d => d.percentage))
+
     if (isVertical) {
       const segmentHeight = height / n
       const centerX = width / 2
-      const minWidth = width * 0.15 // Minimum width at bottom
+      
+      // Scale widths to fit within the chart area
+      // Max width is 95% of available width, min is 15%
+      const scaleWidth = (percentage) => {
+        // Normalize percentage to 0-1 range based on data
+        const normalized = (percentage - minPercentage) / (maxPercentage - minPercentage || 1)
+        // Map to 15% - 95% of width
+        const minWidth = 0.15
+        const maxWidth = 0.95
+        return width * (minWidth + normalized * (maxWidth - minWidth))
+      }
 
       data.forEach((d, i) => {
-        const topWidth = Math.max((width * d.percentage) / 100, minWidth)
-        const nextPercentage = data[i + 1]?.percentage || (d.percentage * 0.3)
-        const bottomWidth = Math.max((width * nextPercentage) / 100, minWidth)
+        const topWidth = scaleWidth(d.percentage)
+        const nextPercentage = data[i + 1]?.percentage
+        const bottomWidth = nextPercentage !== undefined 
+          ? scaleWidth(nextPercentage)
+          : topWidth * 0.6  // Taper to 60% for last segment
         
         const y = i * segmentHeight
         const color = colors[i % colors.length]
@@ -125,7 +144,7 @@ function FunnelChart({
 
         // Left labels (category name)
         g.append('text')
-          .attr('x', centerX - topWidth/2 - 15)
+          .attr('x', -15)
           .attr('y', y + segmentHeight / 2)
           .attr('text-anchor', 'end')
           .attr('dominant-baseline', 'middle')
@@ -137,36 +156,11 @@ function FunnelChart({
         // Right labels (value and percentage)
         let labelY = y + segmentHeight / 2 - (showValues && showPercentages ? 8 : 0)
         
-        if (showValues) {
-          g.append('text')
-            .attr('x', centerX + topWidth/2 + 15)
-            .attr('y', labelY)
-            .attr('text-anchor', 'start')
-            .attr('dominant-baseline', 'middle')
-            .attr('fill', '#374151')
-            .attr('font-size', '13px')
-            .attr('font-weight', '600')
-            .text(formatValue(d.value, valueFormat))
-          labelY += 18
-        }
-
-        if (showPercentages) {
-          g.append('text')
-            .attr('x', centerX + topWidth/2 + 15)
-            .attr('y', labelY)
-            .attr('text-anchor', 'start')
-            .attr('dominant-baseline', 'middle')
-            .attr('fill', '#6b7280')
-            .attr('font-size', '12px')
-            .text(`${d.percentage.toFixed(1)}%`)
-        }
-
-        // Conversion rate between segments
         if (showConversion && i > 0) {
           const convColor = d.conversionRate >= 70 ? '#10b981' : d.conversionRate >= 40 ? '#f59e0b' : '#ef4444'
           g.append('text')
-            .attr('x', centerX + topWidth/2 + 15)
-            .attr('y', y + 8)
+            .attr('x', width + 15)
+            .attr('y', labelY - 14)
             .attr('text-anchor', 'start')
             .attr('dominant-baseline', 'middle')
             .attr('fill', convColor)
@@ -174,17 +168,49 @@ function FunnelChart({
             .attr('font-weight', '500')
             .text(`↓ ${d.conversionRate.toFixed(1)}%`)
         }
+        
+        if (showValues) {
+          g.append('text')
+            .attr('x', width + 15)
+            .attr('y', labelY)
+            .attr('text-anchor', 'start')
+            .attr('dominant-baseline', 'middle')
+            .attr('fill', '#374151')
+            .attr('font-size', '13px')
+            .attr('font-weight', '600')
+            .text(formatValue(d.value, valueFormat))
+          labelY += 16
+        }
+
+        if (showPercentages) {
+          g.append('text')
+            .attr('x', width + 15)
+            .attr('y', labelY)
+            .attr('text-anchor', 'start')
+            .attr('dominant-baseline', 'middle')
+            .attr('fill', '#6b7280')
+            .attr('font-size', '12px')
+            .text(`${d.percentage.toFixed(1)}%`)
+        }
       })
     } else {
       // Horizontal funnel
       const segmentWidth = width / n
       const centerY = height / 2
-      const minHeight = height * 0.2
+      
+      const scaleHeight = (percentage) => {
+        const normalized = (percentage - minPercentage) / (maxPercentage - minPercentage || 1)
+        const minHeight = 0.2
+        const maxHeight = 0.95
+        return height * (minHeight + normalized * (maxHeight - minHeight))
+      }
 
       data.forEach((d, i) => {
-        const leftHeight = Math.max((height * d.percentage) / 100, minHeight)
-        const nextPercentage = data[i + 1]?.percentage || (d.percentage * 0.3)
-        const rightHeight = Math.max((height * nextPercentage) / 100, minHeight)
+        const leftHeight = scaleHeight(d.percentage)
+        const nextPercentage = data[i + 1]?.percentage
+        const rightHeight = nextPercentage !== undefined 
+          ? scaleHeight(nextPercentage)
+          : leftHeight * 0.6
         
         const x = i * segmentWidth
         const color = colors[i % colors.length]
@@ -230,7 +256,7 @@ function FunnelChart({
         // Top label (category)
         g.append('text')
           .attr('x', x + segmentWidth / 2)
-          .attr('y', -10)
+          .attr('y', -15)
           .attr('text-anchor', 'middle')
           .attr('fill', '#374151')
           .attr('font-size', '12px')
@@ -238,15 +264,27 @@ function FunnelChart({
           .text(d.category)
 
         // Bottom labels
+        let labelY = height + 18
         if (showValues) {
           g.append('text')
             .attr('x', x + segmentWidth / 2)
-            .attr('y', height + 18)
+            .attr('y', labelY)
             .attr('text-anchor', 'middle')
             .attr('fill', '#374151')
             .attr('font-size', '12px')
             .attr('font-weight', '600')
             .text(formatValue(d.value, valueFormat))
+          labelY += 16
+        }
+
+        if (showPercentages) {
+          g.append('text')
+            .attr('x', x + segmentWidth / 2)
+            .attr('y', labelY)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#6b7280')
+            .attr('font-size', '11px')
+            .text(`${d.percentage.toFixed(1)}%`)
         }
 
         // Conversion arrows between segments
@@ -254,14 +292,14 @@ function FunnelChart({
           const nextD = data[i + 1]
           const convColor = nextD.conversionRate >= 70 ? '#10b981' : nextD.conversionRate >= 40 ? '#f59e0b' : '#ef4444'
           g.append('text')
-            .attr('x', x + segmentWidth - 5)
+            .attr('x', x + segmentWidth)
             .attr('y', centerY)
             .attr('text-anchor', 'middle')
             .attr('dominant-baseline', 'middle')
             .attr('fill', convColor)
             .attr('font-size', '10px')
             .attr('font-weight', '600')
-            .text(`${nextD.conversionRate.toFixed(0)}%→`)
+            .text(`${nextD.conversionRate.toFixed(0)}%`)
         }
       })
     }
